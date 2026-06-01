@@ -1,0 +1,4 @@
+# Override global .gitignore — the .claude/commands/ directory IS the product here
+!.claude/
+!.claude/commands/
+!.claude/commands/*.md
