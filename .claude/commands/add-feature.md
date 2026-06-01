@@ -127,10 +127,53 @@ subprocess.run(['osascript', '-e', script], ...)
 ```
 Escape the body for AppleScript: replace `\` with `\\`, replace `"` with `\"`.
 
-### Step 6 — Report what changed
+### Step 6 — Sync to Notion (if a page ID is stored)
+
+After updating local files and Apple Notes, check whether `product-notes.md` contains a Notion page ID comment at the top:
+```
+<!-- notion-page-id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx -->
+```
+
+If **no page ID is found**, ask: *"Would you like me to also update a Notion page with this feature? If yes, provide the Notion page ID."* If the user declines or doesn't provide one, skip this step.
+
+If a page ID **is found** (or the user provides one):
+
+**1. Get the Notion API key**
+
+Check for `NOTION_API_KEY` (or `NOTION_TOKEN`) in environment. If missing, ask the user.
+
+**2. Find the insertion point in the Notion page**
+
+Retrieve existing page blocks:
+```python
+import requests, os
+
+headers = {
+    "Authorization": f"Bearer {os.environ['NOTION_API_KEY']}",
+    "Notion-Version": "2022-06-28"
+}
+r = requests.get(f"https://api.notion.com/v1/blocks/{page_id}/children?page_size=100", headers=headers)
+existing_blocks = r.json().get("results", [])
+```
+
+Scan existing blocks to find the section that should precede the new one (match by heading text). If found, the new blocks go after that block's `id` using an `after` parameter. If not found, append to end.
+
+**3. Build and append the new blocks**
+
+Convert the new markdown section to Notion blocks (see block format in `/new-prd` Step 6). Append using:
+```python
+requests.patch(
+    f"https://api.notion.com/v1/blocks/{page_id}/children",
+    headers=headers,
+    json={"children": new_blocks}
+)
+```
+
+### Step 7 — Report what changed
 
 After editing all files, report in one short paragraph:
 - Which PRD section was updated (new epic or appended to existing)
 - How many user stories were added
 - Which product notes section was updated or created
 - Whether a matching Apple Note was found and updated (or skipped if not found)
+- Whether a Notion page was updated (or skipped)

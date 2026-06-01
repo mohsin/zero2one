@@ -145,7 +145,89 @@ end tell
 '''
 ```
 
-### Step 6 — Report
+### Step 6 — Offer to create a Notion page (optional)
+
+After the Apple Notes step, ask the user:
+> "Would you also like me to create a Notion page for this product? I can create a structured page with the product notes content."
+
+If the user says no or doesn't respond affirmatively, skip this step entirely.
+
+If yes:
+
+**1. Get credentials and parent**
+
+Check for `NOTION_API_KEY` (or `NOTION_TOKEN`) in environment variables. If missing, ask the user for it. Ask for the parent Notion page ID (the page under which to create the new page) — this is the 32-character ID from the Notion page URL.
+
+**2. Convert product notes to Notion blocks**
+
+Convert `product-notes.md` to a list of Notion block objects:
+
+| Markdown | Notion block type |
+|----------|------------------|
+| `# Heading` | `heading_1` |
+| `## Heading` | `heading_2` |
+| `### Heading` | `heading_3` |
+| `- bullet` | `bulleted_list_item` |
+| `1. item` | `numbered_list_item` |
+| Prose paragraph | `paragraph` |
+| blank line | _(skip)_ |
+
+Each block follows this structure:
+```python
+def make_block(block_type, text):
+    return {
+        "object": "block",
+        "type": block_type,
+        block_type: {
+            "rich_text": [{"type": "text", "text": {"content": text}}]
+        }
+    }
+```
+
+Strip leading `#`, `-`, `*`, or digit+`.` from text before using it as content.
+
+**3. Create the Notion page**
+
+```python
+import os, requests
+
+headers = {
+    "Authorization": f"Bearer {os.environ['NOTION_API_KEY']}",
+    "Notion-Version": "2022-06-28",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "parent": {"page_id": parent_page_id},
+    "properties": {
+        "title": {
+            "title": [{"type": "text", "text": {"content": product_name}}]
+        }
+    },
+    "children": blocks  # list of block objects, max 100 per request
+}
+
+response = requests.post("https://api.notion.com/v1/pages", headers=headers, json=payload)
+page_id = response.json().get("id")
+```
+
+If `blocks` exceeds 100 items, split into batches and append the remainder using:
+```python
+requests.patch(
+    f"https://api.notion.com/v1/blocks/{page_id}/children",
+    headers=headers,
+    json={"children": batch}
+)
+```
+
+**4. Store the page ID**
+
+Append the Notion page ID to the top of `product-notes.md` as a comment so future syncs can find it without asking again:
+```
+<!-- notion-page-id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx -->
+```
+
+### Step 7 — Report
 
 After creating all files, list:
 - The roles identified
@@ -153,3 +235,4 @@ After creating all files, list:
 - The MVP phase breakdown summary (one line per phase)
 - Any open questions you surfaced
 - Whether an Apple Note was created or already existed
+- Whether a Notion page was created (include the page URL if yes)
