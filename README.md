@@ -20,6 +20,16 @@ Skills are designed to be **stateless and project-agnostic** — they read from 
 /gen-dbml → database-schema.dbml
                ↓
 /feature-to-schema → updates schema + DBML in sync
+               ↓
+/gen-notion-workspace → full Notion PM workspace (Goals → Epics → Tasks → Sprints → Platforms)
+               ↓
+/notion-schedule → set phase dates, cascade to epics and sprints
+               ↓
+/notion-design-sync → import screens, match to epics, detect PRD gaps (run after each design round)
+               ↓
+/notion-start-sprint → create sprint, set goal, close previous (run every 2 weeks)
+               ↓  (calls automatically if no tasks exist for targeted epic)
+/notion-add-tasks → break chosen epic into typed, sized tasks
 ```
 
 ---
@@ -35,6 +45,12 @@ Skills are designed to be **stateless and project-agnostic** — they read from 
 | `/gen-db-schema` | Generates a full PostgreSQL DDL schema document from the PRD |
 | `/gen-dbml` | Converts the schema doc to DBML format for dbdiagram.io / dbdocs.io |
 | `/feature-to-schema` | Extends the existing schema (and DBML) to support a newly described feature |
+| `/gen-notion-workspace` | Generates a complete Notion PM workspace from the PRD: Goals, Epics, Tasks, Sprints, and Platforms databases — all linked — seeded with phases, epics, and platform records from the PRD; branches for solo vs team projects; auto-detects platforms from the tech stack; adds Design Status property to Epics |
+| `/notion-schedule` | Sets start and end dates on all phases in an existing Notion workspace: asks for a start date, accepts fixed deadlines or estimates based on epic count, confirms before writing, cascades dates to projects and sprints |
+| `/notion-reschedule` | Shifts all downstream phase, project, and sprint dates forward when a phase start is missed: computes the slip in days and applies it to every affected record after confirmation |
+| `/notion-start-sprint` | Creates a new sprint in Notion: determines the next sprint number, sets 2-week dates, auto-generates a goal from targeted epics, closes the previous sprint, and calls `/notion-add-tasks` for any epic that has no tasks yet |
+| `/notion-add-tasks` | Breaks down a chosen epic into individual tasks using the PRD: generates typed, sized, and prioritised tasks, asks only where the spec is ambiguous, and writes to Notion after confirmation — calls `/notion-start-sprint` if no active sprint exists |
+| `/notion-design-sync` | Imports UI/UX screens from Claude Design, matches each screen to its epic, embeds screen links in epic page bodies, detects features visible in the design but missing from the PRD, and updates Design Status on each epic |
 
 ---
 
@@ -138,6 +154,67 @@ Reads the existing schema, adds new tables/columns/enums, updates the DBML in sy
 
 ---
 
+### Generate a Notion PM workspace from the PRD
+
+```
+/gen-notion-workspace
+```
+
+Reads the PRD, creates Goals, Epics, Tasks, Sprints, and Platforms databases in Notion, wires all relations and rollups, seeds records from the PRD, assigns platforms per epic, and adds Design Status to all epics. Asks solo vs team upfront and skips Owner/Team DB for solo projects.
+
+---
+
+### Set schedule on all phases
+
+```
+/notion-schedule
+```
+
+Asks for a start date and whether you have fixed deadlines per phase. Estimates end dates based on epic count where flexible. Shows the full proposed schedule before writing anything, then cascades dates down to epics and Sprint 1.
+
+---
+
+### Import design screens into the workspace
+
+```
+/notion-design-sync https://claude.ai/design/p/...
+```
+
+Or with a local handoff bundle:
+```
+/notion-design-sync /path/to/Super\ App-handoff.zip
+```
+
+Matches all screens to their epics, appends a Screens section to each epic page body, sets Design Status, detects features in the design that aren't in the PRD, and proposes new epics for unmatched screens.
+
+---
+
+### Start a sprint and break down an epic
+
+```
+/notion-start-sprint
+```
+
+Determines the next sprint number, sets 2-week dates, asks which epics you're targeting, auto-generates a sprint goal, closes the previous sprint, then calls `/notion-add-tasks` for any epic that has no tasks yet.
+
+```
+/notion-add-tasks E1.1
+```
+
+Reads the PRD and epic page body (including design screens if synced), generates a typed and sized task list, asks only where scope is ambiguous, and writes tasks linked to the active sprint.
+
+---
+
+### Reschedule when a phase start is missed
+
+```
+/notion-reschedule
+```
+
+Asks which phase was missed and what the new start date is. Computes the slip in days and shifts all downstream phase, epic, and sprint dates forward, then shows a before/after table before writing.
+
+---
+
 ## Document conventions
 
 Skills enforce consistent formats so they can read each other's output.
@@ -186,5 +263,6 @@ A skill is worth adding if the answer to this is yes: *"Could someone on a compl
 ## Requirements
 
 - [Claude Code](https://claude.ai/code) CLI or desktop app
-- `NOTION_API_KEY` environment variable — only required for `/notion-sync` and Notion steps in `/new-prd` and `/add-feature`
+- `NOTION_API_KEY` environment variable — required for all `/notion-*` skills and Notion steps in `/new-prd` and `/add-feature`. Set it in your shell profile or pass inline. The Bash tool does not inherit `export` from your terminal, so the key must be available in the environment at skill run time.
+- Notion integration set up once per workspace: go to [notion.so/profile/integrations](https://www.notion.so/profile/integrations), create an Internal integration, copy the secret, then share the workspace root page with the integration via the `...` → Connections menu.
 - No other dependencies — skills run entirely through Claude
