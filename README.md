@@ -11,7 +11,8 @@ Each skill is a `.md` file in `.claude/commands/`. When you type `/skill-name` i
 Skills are designed to be **stateless and project-agnostic** — they read from and write to well-known file names (`product-plan.md`, `product-notes.md`, `database-schema.md`) so they chain together naturally without configuration.
 
 ```
-/new-prd → product-plan.md + product-notes.md
+/create-project → folder structure + product-plan.md + product-notes.md + project-bootstrap.json
+                  (optional chain: Apple Note + Notion page + /gen-db-schema + /gen-dbml + /gen-notion-workspace)
                ↓
 /add-feature → updates both files, syncs Apple Note + Notion
                ↓
@@ -38,11 +39,13 @@ Skills are designed to be **stateless and project-agnostic** — they read from 
 
 | Command | What it does |
 |---------|-------------|
-| `/new-prd` | Bootstraps a full structured PRD and product notes file from a product brief; offers to create a matching Apple Note and/or Notion page |
+| `/create-project` | Bootstraps a brand-new project end-to-end. First classifies the **project shape** (multi-role platform, multi-tenant SaaS, single-user consumer app, content site, CLI/library, desktop app, game, internal tool, other) and runs a shape-conditional questionnaire — skipping role/onboarding questions for CLI tools, skipping pricing questions for open-source projects, etc. Writes `product-plan.md` + `product-notes.md` + `project-bootstrap.json` with only the sections that apply, then optionally chains `/gen-db-schema`, `/gen-dbml`, `/gen-notion-workspace`, and creates an Apple Note + Notion notes page. Every host-dependent step is capability-gated so the same skill runs locally or in a stripped-down cloud environment |
+| `/recreate-project` | The mirror image of `/create-project` for products that already exist: scans the codebase (manifests, schema, routes, env var names, docs, git history) to infer shape, roles, modules, stack, monetization, and compliance posture; asks only what code cannot tell; then writes the same canonical `product-plan.md` + `product-notes.md` + `project-bootstrap.json` with shipped/partial/pending status on every epic and story, surfaces gaps (promised-but-missing features, legal holes, dead config), and optionally creates the Apple Note (with nested folder support) and Notion page |
 | `/add-feature` | Takes a feature description and adds it to the PRD (user stories) and product notes (bullets); syncs Apple Note and Notion page if they exist |
 | `/notes-sync` | Bidirectional sync between a local product notes `.md` and its Apple Note — pushes file additions to Notes, pulls Note additions back to the file |
 | `/notion-sync` | Bidirectional sync between a local product notes `.md` and its Notion page — pushes new sections to Notion, optionally pulls Notion-only content back to the file |
 | `/gen-db-schema` | Generates a full PostgreSQL DDL schema document from the PRD |
+| `/assess-launch` | Research-grounded build & launch assessment of a product plan: parallel subagents for competitors, pain points/monetization, GTM precedents, and regulatory exposure; independent claim verification; risks-first synthesis written to a sourced `.md` with a decisions addendum |
 | `/gen-dbml` | Converts the schema doc to DBML format for dbdiagram.io / dbdocs.io |
 | `/feature-to-schema` | Extends the existing schema (and DBML) to support a newly described feature |
 | `/gen-notion-workspace` | Generates a complete Notion PM workspace from the PRD: Goals, Epics, Tasks, Sprints, and Platforms databases — all linked — seeded with phases, epics, and platform records from the PRD; branches for solo vs team projects; auto-detects platforms from the tech stack; adds Design Status property to Epics |
@@ -51,6 +54,8 @@ Skills are designed to be **stateless and project-agnostic** — they read from 
 | `/notion-start-sprint` | Creates a new sprint in Notion: determines the next sprint number, sets 2-week dates, auto-generates a goal from targeted epics, closes the previous sprint, and calls `/notion-add-tasks` for any epic that has no tasks yet |
 | `/notion-add-tasks` | Breaks down a chosen epic into individual tasks using the PRD: generates typed, sized, and prioritised tasks, asks only where the spec is ambiguous, and writes to Notion after confirmation — calls `/notion-start-sprint` if no active sprint exists |
 | `/notion-design-sync` | Imports UI/UX screens from Claude Design, matches each screen to its epic, embeds screen links in epic page bodies, detects features visible in the design but missing from the PRD, and updates Design Status on each epic |
+
+`/new-prd` was removed and folded into `/create-project`; the latter is the single bootstrap entry point.
 
 ---
 
@@ -69,7 +74,7 @@ cp ~/projects/zero2one/.claude/commands/*.md ~/.claude/commands/
 Copy only the skills you need into a project:
 
 ```bash
-cp ~/projects/zero2one/.claude/commands/new-prd.md /your/project/.claude/commands/
+cp ~/projects/zero2one/.claude/commands/create-project.md /your/project/.claude/commands/
 ```
 
 ### Verify
@@ -83,10 +88,10 @@ Open Claude Code in any project and type `/` — the skills will appear in the a
 ### Start a new product from a brief
 
 ```
-/new-prd A task management tool for small teams. Members can create and assign tasks, set deadlines, and track progress. Managers get an overview dashboard. Launching as a web app with a mobile companion.
+/create-project A task management tool for small teams. Members can create and assign tasks, set deadlines, and track progress. Managers get an overview dashboard. Launching as a web app with a mobile companion.
 ```
 
-Creates `product-plan.md` (user stories by role, phased MVP) and `product-notes.md` (readable stakeholder summary). Optionally creates a matching Apple Note and/or Notion page.
+Runs the full bootstrap questionnaire (identity, roles, onboarding, foundation features, modules, monetization, tech stack, compliance, MVP plan), scaffolds the client folder structure (`~/Work/Client/<Name>/...` by default — path is configurable), writes `product-plan.md`, `product-notes.md`, and a portable `project-bootstrap.json` answers file. Then optionally chains `/gen-db-schema`, `/gen-dbml`, `/gen-notion-workspace`, and creates a matching Apple Note + Notion notes page — each optional step is silently skipped if the relevant capability (`NOTION_API_KEY`, macOS+Notes, write access) isn't available.
 
 ---
 
@@ -263,6 +268,6 @@ A skill is worth adding if the answer to this is yes: *"Could someone on a compl
 ## Requirements
 
 - [Claude Code](https://claude.ai/code) CLI or desktop app
-- `NOTION_API_KEY` environment variable — required for all `/notion-*` skills and Notion steps in `/new-prd` and `/add-feature`. Set it in your shell profile or pass inline. The Bash tool does not inherit `export` from your terminal, so the key must be available in the environment at skill run time.
+- `NOTION_API_KEY` environment variable — required for all `/notion-*` skills and the optional Notion steps in `/create-project` and `/add-feature`. Set it in your shell profile or pass inline. The Bash tool does not inherit `export` from your terminal, so the key must be available in the environment at skill run time.
 - Notion integration set up once per workspace: go to [notion.so/profile/integrations](https://www.notion.so/profile/integrations), create an Internal integration, copy the secret, then share the workspace root page with the integration via the `...` → Connections menu.
 - No other dependencies — skills run entirely through Claude

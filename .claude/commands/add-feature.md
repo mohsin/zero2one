@@ -84,7 +84,7 @@ end tell
 result = subprocess.run(['osascript', '-e', script.replace('TITLE', note_title)], capture_output=True, text=True)
 ```
 
-If the Note is **not found**, ask the user: *"No Apple Note found titled '[title]'. Would you like me to create one in your Projects folder?"* If yes, create it (see `/new-prd` for the creation pattern). If no, skip silently.
+If the Note is **not found**, ask the user: *"No Apple Note found titled '[title]'. Would you like me to create one in your Projects folder?"* If yes, create it (see `/create-project` Step 10 for the creation pattern). If no, skip silently.
 
 If the Note **is found**, read its current body, build the HTML for the new section, and insert it at the correct position.
 
@@ -160,7 +160,7 @@ Scan existing blocks to find the section that should precede the new one (match 
 
 **3. Build and append the new blocks**
 
-Convert the new markdown section to Notion blocks (see block format in `/new-prd` Step 6). Append using:
+Convert the new markdown section to Notion blocks (see block format in `/create-project` Step 11). Append using:
 ```python
 requests.patch(
     f"https://api.notion.com/v1/blocks/{page_id}/children",
