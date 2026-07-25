@@ -95,11 +95,27 @@ Table junction_table {
 
 ### Step 3 — Validate the DBML
 
-After writing the file, verify:
+**Always validate with the official parser** (catches errors manual review misses):
+
+```bash
+npx -y -p @dbml/cli dbml2sql database-schema.dbml -o /tmp/validate.sql
+```
+
+Note: the `-p` flag is required; `npx -y @dbml/cli dbml2sql` fails with "could not determine executable to run". On failure the CLI writes a `dbml-error.log` next to the input file listing every error with line numbers; delete it after fixing.
+
+Also verify:
 - Every `ref:` target table and column exists in the DBML
 - Every enum referenced in a column is defined as an `Enum` block
 - All composite PKs use `indexes { (...) [pk] }` syntax, not repeated `[pk]` columns
 - No PostgreSQL-only syntax leaks into the DBML (no `CREATE TYPE`, no `::`, no `DEFAULT gen_random_uuid()` without backticks)
+
+Known conversion pitfalls (from real runs):
+- Index columns with `DESC`/`ASC` modifiers: DBML does not support ordering; strip the modifier and record it in the index `note:`
+- Operator-class indexes (`title gin_trgm_ops`): keep only the column name; record `USING GIN` and the opclass in the index `note:`
+- `INTERVAL`, `SMALLINT`, `TIME` columns: map to `varchar`/`int`/`time` with a `[note:]` naming the real type
+- Column-level `CHECK (...)` constraints: move into the column `note:`; beware that column names starting with "check" (e.g. `checked_in_at`) are not constraints
+- JSONB defaults containing commas (`DEFAULT '{"a": true, "b": false}'`): commas inside quoted defaults are part of the value, not column separators
+- For large schemas (100+ tables), a mechanical parse of the SQL source is more reliable than hand-writing the DBML; validate the result with the CLI either way
 
 ### Step 4 — Report
 
