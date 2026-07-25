@@ -47,6 +47,7 @@ Skills are designed to be **stateless and project-agnostic** — they read from 
 | `/gen-db-schema` | Generates a full PostgreSQL DDL schema document from the PRD |
 | `/assess-launch` | Research-grounded build & launch assessment of a product plan: parallel subagents for competitors, pain points/monetization, GTM precedents, and regulatory exposure; independent claim verification; risks-first synthesis written to a sourced `.md` with a decisions addendum |
 | `/gen-dbml` | Converts the schema doc to DBML format for dbdiagram.io / dbdocs.io |
+| `/gen-api-spec` | Generates an API spec from the PRD — asks whether you want **OpenAPI 3.0 YAML** (`api-spec.yaml`) or **Postman Collection 2.1 JSON** (`api-collection.json`); derives resources, relationships, and role boundaries from user stories; groups endpoints into domain folders |
 | `/feature-to-schema` | Extends the existing schema (and DBML) to support a newly described feature |
 | `/gen-notion-workspace` | Generates a complete Notion PM workspace from the PRD: Goals, Epics, Tasks, Sprints, and Platforms databases — all linked — seeded with phases, epics, and platform records from the PRD; branches for solo vs team projects; auto-detects platforms from the tech stack; adds Design Status property to Epics |
 | `/notion-schedule` | Sets start and end dates on all phases in an existing Notion workspace: asks for a start date, accepts fixed deadlines or estimates based on epic count, confirms before writing, cascades dates to projects and sprints |
